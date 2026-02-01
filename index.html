@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-    <title>AR Finger Shooter</title>
+    <title>AR Finger Shooter - Black BG</title>
     
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js" crossorigin="anonymous"></script>
     <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js" crossorigin="anonymous"></script>
@@ -16,32 +16,35 @@
             overflow: hidden;
             background: #000;
             font-family: 'Courier New', Courier, monospace;
-            touch-action: none; /* Prevent scroll on mobile */
+            touch-action: none;
         }
 
         #game-container {
             position: relative;
             width: 100vw;
             height: 100vh;
+            background: #000; /* Ensure container is black */
         }
 
-        /* The Camera Feed */
+        /* The Camera Feed - HIDDEN VISUALLY BUT ACTIVE */
         #input-video {
             position: absolute;
             width: 100%;
             height: 100%;
             object-fit: cover;
-            transform: scaleX(-1); /* Mirror effect */
+            transform: scaleX(-1);
             z-index: 1;
+            opacity: 0; /* Change: Hide the raw video feed */
         }
 
-        /* The Game Layer */
+        /* The Game Layer - Solid Background */
         #output-canvas {
             position: absolute;
             width: 100%;
             height: 100%;
             z-index: 2;
-            transform: scaleX(-1); /* Mirror canvas to match video */
+            transform: scaleX(-1);
+            /* Background will be drawn black in JS loop */
         }
 
         /* UI Overlay */
@@ -52,7 +55,7 @@
             width: 100%;
             height: 100%;
             z-index: 3;
-            pointer-events: none; /* Let clicks pass through */
+            pointer-events: none;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -73,7 +76,7 @@
             left: 0;
             width: 100%;
             height: 100%;
-            background: rgba(0, 0, 0, 0.85);
+            background: rgba(0, 0, 0, 1.0); /* Solid black start screen */
             z-index: 10;
             display: flex;
             flex-direction: column;
@@ -115,7 +118,6 @@
             transform: scale(0.95);
         }
 
-        /* Loading Spinner */
         .loader {
             border: 5px solid #333;
             border-top: 5px solid #0ff;
@@ -151,7 +153,6 @@
 </div>
 
 <script>
-    // --- Configuration ---
     const VIDEO_Element = document.getElementById('input-video');
     const CANVAS_Element = document.getElementById('output-canvas');
     const CTX = CANVAS_Element.getContext('2d');
@@ -163,19 +164,15 @@
 
     let score = 0;
     let gameActive = false;
-    let lastShotTime = 0;
     
-    // Game Objects
     let balloons = [];
     let particles = [];
     let fingerX = 0;
     let fingerY = 0;
     let isPinching = false;
 
-    // Audio Context
     let audioCtx;
 
-    // --- Audio System (Synthesizer) ---
     function initAudio() {
         const AudioContext = window.AudioContext || window.webkitAudioContext;
         audioCtx = new AudioContext();
@@ -211,8 +208,6 @@
         osc.stop(audioCtx.currentTime + 0.1);
     }
 
-    // --- Game Logic ---
-
     class Balloon {
         constructor() {
             this.reset();
@@ -233,7 +228,6 @@
             this.y -= this.speed;
             this.x += Math.sin(this.y * 0.01 + this.wobble) * 0.5;
 
-            // Reset if goes off top
             if (this.y < -this.radius) {
                 this.reset();
             }
@@ -245,7 +239,6 @@
             CTX.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
             CTX.fillStyle = `hsla(${this.hue}, 70%, 60%, 0.8)`;
             CTX.fill();
-            // Shine
             CTX.beginPath();
             CTX.arc(this.x - this.radius * 0.3, this.y - this.radius * 0.3, this.radius * 0.2, 0, Math.PI * 2);
             CTX.fillStyle = 'rgba(255,255,255,0.4)';
@@ -279,7 +272,6 @@
         }
     }
 
-    // Initialize Balloons
     for (let i = 0; i < 5; i++) {
         balloons.push(new Balloon());
     }
@@ -292,41 +284,38 @@
             const distance = Math.sqrt(dx * dx + dy * dy);
 
             if (distance < b.radius) {
-                // POP!
                 playPopSound();
                 b.active = false;
                 score += 10;
                 SCORE_EL.innerText = score;
                 
-                // Spawn particles
                 for (let i = 0; i < 10; i++) {
                     particles.push(new Particle(b.x, b.y, b.hue));
                 }
 
-                // Respawn balloon after delay
                 setTimeout(() => b.reset(), 1000);
             }
         });
     }
 
     function drawGame() {
-        // Clear canvas (but keep transparent to see video)
-        CTX.clearRect(0, 0, CANVAS_Element.width, CANVAS_Element.height);
+        // --- CHANGE: Fill background with BLACK instead of clearing to transparent ---
+        // This hides the video feed and prevents flickering.
+        CTX.fillStyle = '#000000';
+        CTX.fillRect(0, 0, CANVAS_Element.width, CANVAS_Element.height);
+        // -----------------------------------------------------------------------------
 
-        // Draw Balloons
         balloons.forEach(b => {
             b.update();
             b.draw();
         });
 
-        // Draw Particles
         particles.forEach((p, index) => {
             p.update();
             p.draw();
             if (p.life <= 0) particles.splice(index, 1);
         });
 
-        // Draw Crosshair (at finger position)
         if (fingerX !== 0 && fingerY !== 0) {
             CTX.strokeStyle = isPinching ? '#f00' : '#0ff';
             CTX.lineWidth = 3;
@@ -334,7 +323,6 @@
             CTX.arc(fingerX, fingerY, 20, 0, Math.PI * 2);
             CTX.stroke();
             
-            // Cross lines
             CTX.beginPath();
             CTX.moveTo(fingerX - 30, fingerY);
             CTX.lineTo(fingerX + 30, fingerY);
@@ -343,7 +331,6 @@
             CTX.stroke();
 
             if (isPinching) {
-                // Muzzle flash visual
                 CTX.fillStyle = 'rgba(255, 50, 50, 0.5)';
                 CTX.beginPath();
                 CTX.arc(fingerX, fingerY, 40, 0, Math.PI * 2);
@@ -353,38 +340,27 @@
         
         requestAnimationFrame(drawGame);
     }
-
-
-    // --- MediaPipe Setup ---
     
     function onResults(results) {
         if (!gameActive) return;
 
-        // Ensure canvas matches video size
         CANVAS_Element.width = VIDEO_Element.videoWidth;
         CANVAS_Element.height = VIDEO_Element.videoHeight;
 
         if (results.multiHandLandmarks && results.multiHandLandmarks.length > 0) {
             const landmarks = results.multiHandLandmarks[0];
             
-            // Get Index Finger Tip (Landmark 8)
-            // Note: MediaPipe coords are 0.0 - 1.0 normalized
             fingerX = landmarks[8].x * CANVAS_Element.width;
             fingerY = landmarks[8].y * CANVAS_Element.height;
 
-            // Get Thumb Tip (Landmark 4) for pinch detection
             const thumbX = landmarks[4].x * CANVAS_Element.width;
             const thumbY = landmarks[4].y * CANVAS_Element.height;
 
-            // Calculate distance for pinch
             const dist = Math.hypot(fingerX - thumbX, fingerY - thumbY);
-            
-            // Pinch Threshold (adjust based on testing)
             const pinchThreshold = 40; 
 
             if (dist < pinchThreshold) {
                 if (!isPinching) {
-                    // Trigger Start
                     isPinching = true;
                     playShootSound();
                     checkCollisions();
@@ -408,8 +384,6 @@
 
     hands.onResults(onResults);
 
-    // --- Initialization & Camera ---
-
     async function startCamera() {
         try {
             const camera = new Camera(VIDEO_Element, {
@@ -425,7 +399,7 @@
             LOADER.style.display = "none";
             START_SCREEN.style.display = "none";
             gameActive = true;
-            drawGame(); // Start Loop
+            drawGame(); 
 
         } catch (error) {
             console.error(error);
@@ -440,13 +414,11 @@
         LOADER.style.display = "block";
         STATUS_MSG.innerText = "Requesting Camera Permission...";
         
-        initAudio(); // Must start on user interaction
+        initAudio();
         
-        // Android/Mobile explicit permission request logic often helps here
         navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
             .then((stream) => {
                 VIDEO_Element.srcObject = stream;
-                // Once stream is active, hand it to MediaPipe Camera Utils
                 startCamera(); 
             })
             .catch((err) => {
